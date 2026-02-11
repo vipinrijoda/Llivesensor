@@ -23,15 +23,21 @@ class DataIngestion:
         """
         try:
             logging.info("Exporting data from mongodb to feature store")
+
             sensor_data = SensorData()
+
             dataframe = sensor_data.export_collection_as_dataframe(collection_name=self.data_ingestion_config.collection_name)
+
             feature_store_file_path = self.data_ingestion_config.feature_store_file_path            
 
             #creating folder
             dir_path = os.path.dirname(feature_store_file_path)
             os.makedirs(dir_path,exist_ok=True)
+
             dataframe.to_csv(feature_store_file_path,index=False,header=True)
             return dataframe
+        
+        
         except  Exception as e:
             raise  SensorException(e,sys)
 
