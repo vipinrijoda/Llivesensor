@@ -15,7 +15,7 @@ st.set_page_config(
 
 # Initialize session state
 if 'page' not in st.session_state:
-    st.session_state.page = "Live Monitoring"
+    st.session_state.page = "📋 Project Info"
 
 # SIDEBAR ONLY - NO OTHER CONTENT
 with st.sidebar:
@@ -24,11 +24,12 @@ with st.sidebar:
     
     # Navigation - PREDICT ADDED HERE
     pages = [
+        "📋 Project Info",
         "Live Monitoring", 
         "ROI Analytics", 
         "Active Learning", 
         "Model Insights",
-        "🔮 Predict"  # ← ADDED PREDICT WITH EMOJI
+        "🔮 Predict"  
     ]
     
     selected = st.radio("Navigation", pages)
@@ -51,7 +52,11 @@ with st.sidebar:
 
 # MAIN CONTENT AREA - ROUTING WITH PREDICT
 try:
-    if st.session_state.page == "Live Monitoring":
+    if st.session_state.page == "📋 Project Info":  # ← ADD THIS
+        from pages.project_info import show
+        show()    
+
+    elif st.session_state.page == "Live Monitoring":
         from pages.live_monitoring import show
         show()
     elif st.session_state.page == "ROI Analytics":

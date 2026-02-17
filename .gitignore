@@ -56,7 +56,7 @@ cover/
 *.pot
 
 # Django stuff:
-*.log
+*.logs
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
@@ -207,7 +207,20 @@ marimo/_lsp/
 __marimo__/
 
 artifact/
+logs/
 saved_models/
 *.npy
 *.csv
 *.pkl
+# Artifacts and large files
+artifact/
+artifacts/
+saved_models/
+*.npy
+*.pkl
+*.h5
+*.joblib
+logs/
+*.log
+__pycache__/
+*.pyc

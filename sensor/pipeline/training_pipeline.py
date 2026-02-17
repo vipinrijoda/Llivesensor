@@ -11,48 +11,15 @@ from sensor.components.data_transformation import DataTransformation
 from sensor.components.model_trainer import ModelTrainer
 from sensor.components.model_evaluation import ModelEvaluation
 from sensor.components.model_pusher import ModelPusher
-from datetime import datetime
 
 from sensor.constant.training_pipeline import SAVED_MODEL_DIR
 
 class TrainPipeline:
     is_pipeline_running=False
-    
     def __init__(self):
         self.training_pipeline_config = TrainingPipelineConfig()
         
-    def create_directories(self):
-        """Create all necessary directories before starting pipeline"""
-        try:
-            # Create main directories
-            directories = [
-                "logs",
-                "artifacts",
-                "saved_models",
-                os.path.join("artifacts", "data_ingestion"),
-                os.path.join("artifacts", "data_validation"),
-                os.path.join("artifacts", "data_transformation"),
-                os.path.join("artifacts", "model_trainer"),
-                os.path.join("artifacts", "model_evaluation"),
-                os.path.join("artifacts", "model_pusher"),
-            ]
-            
-            for dir_path in directories:
-                os.makedirs(dir_path, exist_ok=True)
-                # REMOVED EMOJI - using plain text
-                logging.info(f"Created directory: {dir_path}")
-                
-            # Create a test log file to verify write permissions
-            test_log_path = os.path.join("logs", f"test_{datetime.now().strftime('%m%d%Y_%H%M%S')}.log")
-            with open(test_log_path, 'w') as f:
-                f.write("Test log file - directory is writable")
-            os.remove(test_log_path)
-            # REMOVED EMOJI - using plain text
-            logging.info("Logs directory is writable")
-            
-        except Exception as e:
-            logging.error(f"Error creating directories: {e}")
-            raise SensorException(e, sys)
+
 
     def start_data_ingestion(self)->DataIngestionArtifact:
         try:
@@ -116,44 +83,24 @@ class TrainPipeline:
         except  Exception as e:
             raise  SensorException(e,sys)
 
+
+
     def run_pipeline(self):
         try:
-            # Create all necessary directories first
-            self.create_directories()
             
             TrainPipeline.is_pipeline_running=True
-            logging.info("="*60)
-            logging.info("Starting Training Pipeline")
-            logging.info("="*60)
 
             data_ingestion_artifact:DataIngestionArtifact = self.start_data_ingestion()
-            logging.info("Data Ingestion completed")
-            
             data_validation_artifact=self.start_data_validaton(data_ingestion_artifact=data_ingestion_artifact)
-            logging.info("Data Validation completed")
-            
             data_transformation_artifact = self.start_data_transformation(data_validation_artifact=data_validation_artifact)
-            logging.info("Data Transformation completed")
-            
             model_trainer_artifact = self.start_model_trainer(data_transformation_artifact)
-            logging.info("Model Trainer completed")
-            
             model_eval_artifact = self.start_model_evaluation(data_validation_artifact, model_trainer_artifact)
-            logging.info("Model Evaluation completed")
-            
             if not model_eval_artifact.is_model_accepted:
-                logging.warning("Trained model is not better than the best model")
                 raise Exception("Trained model is not better than the best model")
-            
             model_pusher_artifact = self.start_model_pusher(model_eval_artifact)
-            logging.info("Model Pusher completed")
-            
             TrainPipeline.is_pipeline_running=False
-            logging.info("="*60)
-            logging.info("Training Pipeline Completed Successfully")
-            logging.info("="*60)
-
-        except Exception as e:
+           
+        except  Exception as e:
+           
             TrainPipeline.is_pipeline_running=False
-            logging.error(f"Training Pipeline Failed: {e}")
-            raise SensorException(e, sys)
+            raise  SensorException(e,sys)
