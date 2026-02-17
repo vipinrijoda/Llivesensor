@@ -5,7 +5,9 @@ scikit-learn
 python-dotenv
 pyYAML
 dill
-
+scipy
+imblearn
+xgboost
 
 -e .
 

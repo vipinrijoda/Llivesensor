@@ -1,0 +1,2 @@
+TRAINING_BUCKET_NAME = "scania-"
+PREDICTION_BUCKET_NAME = "sensor"
