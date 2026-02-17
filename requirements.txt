@@ -1,13 +1,16 @@
 pymongo[sv]==4.2.0
-pandas
-numpy
-scikit-learn
 python-dotenv
 pyYAML
 dill
 scipy
-imblearn
-xgboost
-
--e .
+imbalanced-learn
+streamlit==1.28.0
+pandas==2.0.3
+numpy==1.24.3
+plotly==5.17.0
+python-dotenv==1.0.0
+scikit-learn==1.3.0
+xgboost==1.7.6
+fastapi==0.104.1
+uvicorn==0.24.0
 
