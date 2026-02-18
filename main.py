@@ -120,7 +120,7 @@ def train_model():
     except Exception as e:
         return False, f"Training failed: {str(e)}"
 
-def get_sensor_data(limit=1000):
+def get_sensor_data(limit=10000):
     """
     Get REAL sensor data from MongoDB - NO SAMPLE DATA
     Returns None if no data found
@@ -632,42 +632,147 @@ elif page == "🔮 Predict":
             
             # Batch size
             batch_size = st.slider("Batch Size", 100, 5000, 1000)
-            
+                        
             if st.button("Run Predictions", type="primary"):
+
                 progress = st.progress(0)
                 all_preds = []
-                
+                all_conf = []
+
                 for i in range(0, len(processed_df), batch_size):
                     batch = processed_df.iloc[i:i+batch_size]
+
                     preds = model.predict(batch)
                     all_preds.extend(preds)
+
+                    # Confidence Handling
+                    if hasattr(model, "predict_proba"):
+                        probs = model.predict_proba(batch)
+                        conf = probs.max(axis=1)
+                        all_conf.extend(conf)
+                    else:
+                        all_conf.extend([0.95] * len(batch))
+
                     progress.progress(min(1.0, (i + len(batch)) / len(processed_df)))
-                
-                # Results
-                results_df = processed_df.copy()
+
+                # =====================================
+                # CREATE RESULTS DATAFRAME
+                # =====================================
+
+                results_df = df.copy()
                 results_df['prediction'] = all_preds
-                
-                faults = sum(all_preds)
-                
-                col1, col2, col3 = st.columns(3)
-                col1.metric("Total", len(results_df))
-                col2.metric("Faults", faults)
-                col3.metric("Fault Rate", f"{(faults/len(results_df))*100:.1f}%" if len(results_df) > 0 else "0%")
-                
-                # Download
+                results_df['confidence'] = all_conf
+                results_df['timestamp'] = datetime.now()
+
+                # Human readable labels
+                results_df['fault_status'] = results_df['prediction'].apply(
+                    lambda x: "⚠️ Fault" if x == 1 else "✅ Normal"
+                )
+
+                # Severity Logic
+                def get_severity(row):
+                    if row['prediction'] == 1 and row['confidence'] >= 0.90:
+                        return "🔴 Critical"
+                    elif row['prediction'] == 1:
+                        return "🟠 High"
+                    else:
+                        return "🟢 Normal"
+
+                results_df['severity'] = results_df.apply(get_severity, axis=1)
+
+                # =====================================
+                # SUMMARY METRICS
+                # =====================================
+
+                total = len(results_df)
+                faults = int(results_df['prediction'].sum())
+                fault_rate = (faults / total) * 100 if total > 0 else 0
+
+                st.subheader("📊 Prediction Summary")
+
+                col1, col2, col3, col4 = st.columns(4)
+
+                col1.metric("Total Records", f"{total:,}")
+                col2.metric("Faults Detected", f"{faults:,}")
+                col3.metric("Fault Rate", f"{fault_rate:.1f}%")
+                col4.metric("Avg Confidence", f"{results_df['confidence'].mean()*100:.1f}%")
+
+                # =====================================
+                # VISUALIZATION
+                # =====================================
+
+                st.subheader("📈 Prediction Distribution")
+
+                fig = px.pie(
+                    results_df,
+                    names='fault_status',
+                    hole=0.4,
+                    title="Fault vs Normal Distribution"
+                )
+
+                fig.update_traces(
+                    hovertemplate="<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent}<extra></extra>"
+                )
+
+                st.plotly_chart(fig, use_container_width=True)
+
+                # =====================================
+                # TOP FAULTS SECTION
+                # =====================================
+
+                if faults > 0:
+                    st.subheader("🚨 Top Critical Faults")
+
+                    critical_df = results_df[results_df['severity'] == "🔴 Critical"]
+                    critical_df = critical_df.sort_values(by="confidence", ascending=False)
+
+                    if not critical_df.empty:
+                        st.dataframe(
+                            critical_df[['fault_status', 'severity', 'confidence', 'timestamp']].head(10),
+                            use_container_width=True
+                        )
+                    else:
+                        st.info("No critical faults detected.")
+
+                # =====================================
+                # DETAILED RESULTS TABLE
+                # =====================================
+
+                st.subheader("📋 Detailed Results")
+
+                display_cols = ['fault_status', 'severity', 'confidence', 'timestamp']
+
+                formatted_df = results_df[display_cols].copy()
+                formatted_df['confidence'] = formatted_df['confidence'].apply(lambda x: f"{x*100:.2f}%")
+                formatted_df['timestamp'] = formatted_df['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
+
+                st.dataframe(
+                    formatted_df,
+                    use_container_width=True,
+                    height=450
+                )
+
+                # =====================================
+                # DOWNLOAD BUTTON
+                # =====================================
+
                 csv = results_df.to_csv(index=False)
+
                 st.download_button(
-                    "📥 Download Results",
+                    "📥 Download Full Prediction Results",
                     csv,
                     f"predictions_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                     "text/csv"
                 )
-                
-                # Option to save to MongoDB
+
+                # =====================================
+                # SAVE TO DATABASE
+                # =====================================
+
                 if st.button("💾 Save to Database"):
                     success, result = save_predictions_to_db(results_df)
                     if success:
-                        st.success(f"✅ Saved {result} predictions to '{PREDICTIONS_COLLECTION}'")
+                        st.success(f"✅ Saved {result} predictions to '{PREDICTIONS_COLLECTION}' collection")
                     else:
                         st.error(f"❌ Error saving: {result}")
     
