@@ -6,6 +6,7 @@ import plotly.express as px
 import sys
 import os
 import io
+import time
 from pathlib import Path
 from datetime import datetime
 
@@ -22,27 +23,72 @@ COLUMNS_TO_DROP = ['br_000', 'bq_000', 'bp_000', 'ab_000', 'cr_000', 'bo_000', '
 def show():
     st.title("🔮 Predict on New Data")
     
-    st.markdown("""
-    Upload a CSV file with sensor readings to get predictions from your trained model.
-    The file should contain the same sensor columns your model was trained on.
-    """)
-    
-    # Check if model exists
+    # Get the model directory path
     model_dir = os.path.join(Path(__file__).parent.parent.parent, "saved_models")
     
+    # Check if directory exists (Git LFS might still be downloading)
     if not os.path.exists(model_dir):
-        st.error("❌ No saved_models directory found. Please train a model first.")
+        st.warning("⏳ Model files are being downloaded from Git LFS. Please wait...")
+        
+        # Show progress simulation
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        for i in range(10):
+            time.sleep(0.5)  # Simulate waiting
+            progress_bar.progress((i + 1) * 10)
+            status_text.text(f"Downloading model files... { (i + 1) * 10}%")
+        
+        progress_bar.empty()
+        status_text.empty()
+        
+        st.info("""
+        **Why this happens:**
+        - Your model is stored in Git LFS (Large File Storage)
+        - Streamlit Cloud downloads LFS files after the initial clone
+        - This can take 1-5 minutes depending on file size
+        
+        **Click the button below to check again:**
+        """)
+        
+        if st.button("🔄 Check Again", type="primary"):
+            st.rerun()
         return
     
-    model_versions = [d for d in os.listdir(model_dir) if os.path.isdir(os.path.join(model_dir, d))]
+    # If directory exists but is empty, still waiting
+    if os.path.exists(model_dir) and not os.listdir(model_dir):
+        st.warning("⏳ Model directory found but files are still downloading. Please wait...")
+        if st.button("🔄 Refresh"):
+            st.rerun()
+        return
+    
+    # Get model versions
+    try:
+        model_versions = [d for d in os.listdir(model_dir) if os.path.isdir(os.path.join(model_dir, d))]
+    except Exception as e:
+        st.error(f"❌ Error accessing model directory: {e}")
+        return
     
     if not model_versions:
         st.error("❌ No trained models found. Please run training pipeline first.")
         return
     
+    st.markdown("""
+    Upload a CSV file with sensor readings to get predictions from your trained model.
+    The file should contain the same sensor columns your model was trained on.
+    """)
+    
     # Model selection
     selected_version = st.selectbox("Select Model Version", model_versions)
     model_path = os.path.join(model_dir, selected_version, "model.pkl")
+    
+    # Check if model file exists
+    if not os.path.exists(model_path):
+        st.error(f"❌ Model file not found at: {model_path}")
+        st.info("This might happen if Git LFS hasn't finished downloading. Please wait and refresh.")
+        if st.button("🔄 Refresh Page"):
+            st.rerun()
+        return
     
     # Load model
     with st.spinner("Loading model..."):
