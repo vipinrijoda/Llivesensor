@@ -208,16 +208,19 @@ __marimo__/
 
 artifact/
 logs/
-saved_models/
 *.npy
 *.csv
 *.pkl
 # Artifacts and large files
 artifact/
 artifacts/
-saved_models/
 *.npy
 *.pkl
+# Model Files (IGNORE ALL BY DEFAULT)
+*.pkl
+# --- THE EXCEPTION ---
+# Un-ignore the specific model needed for deployment
+!saved_models/1771372028/model.pkl
 *.h5
 *.joblib
 logs/
