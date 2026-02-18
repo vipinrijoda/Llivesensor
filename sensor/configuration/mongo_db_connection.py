@@ -1,12 +1,13 @@
-import streamlit as st # Add this import
 import pymongo
-import os
-import certifi
-import logging
+from dotenv import load_dotenv
 from sensor.constant.database import DATABASE_NAME
 from sensor.constant.env_variable import MONGODB_URL_KEY
+import certifi
+import os
+import logging
 
 ca = certifi.where()
+load_dotenv()
 
 class MongoDBClient:
     client = None
@@ -14,24 +15,34 @@ class MongoDBClient:
     def __init__(self, database_name=DATABASE_NAME) -> None:
         try:
             if MongoDBClient.client is None:
-                # 1. Try to get URL from Streamlit Secrets first, then OS Env
-                mongo_db_url = st.secrets.get(MONGODB_URL_KEY) or os.getenv(MONGODB_URL_KEY)
+                # Get MongoDB URL from environment variables FIRST
+                mongo_db_url = os.getenv(MONGODB_URL_KEY)
                 
+                # Try Streamlit secrets ONLY if running on Streamlit Cloud
                 if mongo_db_url is None:
-                    raise Exception(f"Environment variable '{MONGODB_URL_KEY}' is not set in Secrets or .env file")
-
-                logging.info(f"Retrieved MongoDB URL")
+                    try:
+                        import streamlit as st
+                        if hasattr(st, 'secrets') and MONGODB_URL_KEY in st.secrets:
+                            mongo_db_url = st.secrets[MONGODB_URL_KEY]
+                            logging.info("Using MongoDB URL from Streamlit secrets")
+                    except:
+                        pass
                 
-                # 2. Connection Logic
+                # Final fallback to localhost
+                if mongo_db_url is None:
+                    mongo_db_url = "mongodb://localhost:27017/"
+                    logging.warning("Using default local MongoDB URL")
+                
+                logging.info(f"Connecting to MongoDB...")
+                
                 if "localhost" in mongo_db_url:
                     MongoDBClient.client = pymongo.MongoClient(mongo_db_url)
                 else:
-                    # Use the certificate for Atlas connections
                     MongoDBClient.client = pymongo.MongoClient(mongo_db_url, tlsCAFile=ca)
                 
             self.client = MongoDBClient.client
             self.database = self.client[database_name]
-            self.database_name = database_name # Added for clarity
+            logging.info(f"Connected to database: {database_name}")
             
         except Exception as e:
             logging.error(f"Failed to connect to MongoDB: {e}")
